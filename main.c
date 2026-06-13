@@ -71,7 +71,51 @@ int main() {
 
     printf("--- Iniciando el procesamiento de montos ---\n");
 
+    // El padre lee mientras algún pipe siga abierto
+    while (c_abierto || d_abierto) {
+        FD_ZERO(&read_fds);
+        if (c_abierto) FD_SET(pipe_credito[0], &read_fds);
+        if (d_abierto) FD_SET(pipe_debito[0], &read_fds);
+
+        // Espera a que haya datos en alguno de los pipes
+        select(max_fd + 1, &read_fds, NULL, NULL, NULL);
+
+        // Verifica si el hijo de credito envio algo
+        if (c_abierto && FD_ISSET(pipe_credito[0], &read_fds)) {
+            if (read(pipe_credito[0], &monto, sizeof(int)) > 0) {
+                printf("Credito reporto: +$%d\n", monto); // 
+            } else {
+                c_abierto = 0; // Lee 0 bytes, asume que el hijo cerro y finalizo correctamente
+            }
+        }
+
+        // Verifica si el hijo de débito envió algo
+        if (d_abierto && FD_ISSET(pipe_debito[0], &read_fds)) {
+            if (read(pipe_debito[0], &monto, sizeof(int)) > 0) {
+                printf("Debito reporto: -$%d\n", monto); // [cite: 27]
+            } else {
+                d_abierto = 0; // Lee 0 bytes, asume que el hijo cerro y finalizo correctamente
+            }
+        }
+    }
+
+    // Cuando ambos hijos finalizaron, el padre los espera
+    wait(NULL);
+    wait(NULL);
+
+    // Muestra el saldo final y limpia 
+    printf("\n--------------------------------\n");
+    printf("Saldo final en la cuenta: $%d\n", mem_comp->saldo);
+
+    close(pipe_credito[0]);
+    close(pipe_debito[0]);
+    sem_destroy(&mem_comp->semaforo);
+    munmap(mem_comp, sizeof(MemCompartida));
+
+    // El padre finaliza 
+    return 0;
 }
+
 
 // 3. Funciones 
 void credito(char * archivo_montos, int p[]) {

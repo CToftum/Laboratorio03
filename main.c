@@ -1,3 +1,9 @@
+/*
+ * Laboratorio III: Uso de semaforos y pipes
+ * Autores: LARREA TOFTUM CRISTIAN y VALLEJOS SEBASTIAN
+ * Repositorio GitHub: https://github.com/CToftum/Laboratorio03
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

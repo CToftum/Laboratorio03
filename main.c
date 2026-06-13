@@ -20,8 +20,58 @@ void debito(char * archivo_montos, int p[]);
 void credito(char * archivo_montos, int p[]);
 
 int main() {
-}
+    // 4. Creación de la memoria compartida por el padre 
+    // Usamos mmap para crear una región anónima y compartida
+    mem_comp = mmap(NULL, sizeof(MemCompartida), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (mem_comp == MAP_FAILED) {
+        perror("Error al crear memoria compartida");
+        exit(1);
+    }
 
+    mem_comp->saldo = 0; // Inicializamos el saldo en 0
+    
+    // Inicializamos el semaforo (1 = compartido entre procesos, 1 = valor inicial para exclusion mutua)
+    if (sem_init(&mem_comp->semaforo, 1, 1) == -1) {
+        perror("Error al inicializar semaforo");
+        exit(1);
+    }
+
+    // 5. Creación de los pipes
+    int pipe_credito[2], pipe_debito[2];
+    if (pipe(pipe_credito) == -1 || pipe(pipe_debito) == -1) {
+        perror("Error al crear pipes");
+        exit(1);
+    }
+
+    // 6. Creación de procesos hijos
+    pid_t pid_credito = fork();
+    if (pid_credito == 0) {
+        // Hijo: Credito
+        credito("credito.txt", pipe_credito); 
+    }
+
+    pid_t pid_debito = fork();
+    if (pid_debito == 0) {
+        // Hijo: Debito
+        debito("debito.txt", pipe_debito);
+    }
+
+    // 7. Proceso Padre 
+    // Cierra los extremos de escritura de los pipes, ya que el padre solo lee
+    close(pipe_credito[1]);
+    close(pipe_debito[1]);
+
+    int monto;
+    int c_abierto = 1;
+    int d_abierto = 1;
+    fd_set read_fds;
+    
+    // Calculamos el descriptor más alto para la funcion select()
+    int max_fd = (pipe_credito[0] > pipe_debito[0]) ? pipe_credito[0] : pipe_debito[0];
+
+    printf("--- Iniciando el procesamiento de montos ---\n");
+
+}
 
 // 3. Funciones 
 void credito(char * archivo_montos, int p[]) {
